@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <title>Bate-papo Node.js e Socket.IO</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+  </head>
+      <style>
+      /* Estilos gerais */
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #e5ddd5;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        justify-content: space-between;
+      }
+      .topo {
+        background-color: #075e54;
+        color: white;
+        justify-content: space-between;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        font-size: 7px;
+      }
+      .i{
+        font-size: 30px;
+
+      }
+      .i2{
+        font-size: 30px;
+      }
+      .audio{
+        background-color: #25d366;
+        font-size: 30px;
+        padding: 3px;
+        height: 30px;
+        width: 30px;
+        border-radius: 100px
+      }
+      /* Container de mensagens */
+      #mensagens {
+        list-style-type: none;
+        padding: 10px;
+        margin: 0;
+        flex-grow: 1;
+        overflow-y: auto;
+        max-height: 80vh;
+      }
+
+      /* Estilos para cada mensagem */
+      #mensagens li {
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        border-radius: 15px;
+        font-size: 14px; /* Tamanho da fonte da mensagem */
+        line-height: 1.4;
+        max-width: 70%;
+        clear: both;
+      }
+
+      /* Mensagens enviadas pelo usuário (à direita) */
+      #mensagens li:nth-child(odd) {
+        background-color: #dcf8c6;
+        margin-left: auto;
+        border-radius: 15px 15px 0 15px;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Mensagens enviadas pelo outro usuário (à esquerda) */
+      #mensagens li:nth-child(even) {
+        background-color: #ffffff;
+        border-radius: 15px 15px 15px 0;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Nome do usuário (mensagem) */
+      #mensagens li span.nome {
+        font-weight: bold;
+        font-size: 12px; /* Tamanho menor para o nome */
+        color: #333;
+        display: block;
+        margin-bottom: 4px;
+      }
+      /* Formulário de entrada (nome e mensagem) */
+      form {
+        display: flex;
+        padding: 10px;
+        background-color: #ffffff;
+        border-top: 1px solid #ccc;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        align-items: center;
+      }
+
+      /* Estilo do input de nome */
+      #nome {
+        font-size: 14px;
+        padding: 10px;
+        margin-right: 10px;
+        border-radius: 20px;
+        border: 1px solid #ccc;
+        width: 50%;
+      }
+
+      /* Estilos do campo de mensagem */
+      #mensagem {
+        padding: 10px;
+        font-size: 14px;
+        border-radius: 20px;
+        border: 1px solid #ccc;
+        width: 65%; /* Largura do campo de mensagem */
+        box-sizing: border-box;
+      }
+
+      /* Estilos do botão de envio */
+      button {
+        background-color: #25d366;
+        border: none;
+        color: white;
+        padding: 10px 18px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-left: 10px;
+      }
+
+      button:hover {
+        background-color: #128c7e;
+      }
+
+      input:focus {
+        border-color: #25d366;
+        outline: none;
+      }
+
+      /* Estilo para o layout responsivo */
+      @media (max-width: 480px) {
+        /* Ajusta o layout em telas menores (celulares) */
+        form {
+          flex-direction: column;
+        }
+        #nome {
+          width: 100%;
+          margin-right: 0;
+          margin-bottom: 8px;
+        }
+        #mensagem {
+          width: 100%;
+        }
+        button {
+          width: 100%;
+          margin-top: 8px;
+        }
+      }
+
+    </style>
+  <body>
+    <div class="topo">
+      <div class="i">
+      <i class='bx bx-arrow-back'></i>
+      <i class='bx bxs-user-circle'></i>
+      </div>
+      <div class="i2">
+        <i class='bx bx-video'></i>
+        <i class='bx bx-phone'></i>
+        <i class='bx bx-dots-vertical-rounded'></i>
+      </div>
+    </div>
+    <ul id="mensagens"></ul>
+    <form>
+      
+      <input id="nome" placeholder="Seu nome de usuário" autocomplete="off" /><br>
+      <input id="mensagem" placeholder="Sua mensagem" autocomplete="off" />
+      <div class="audio"><i class='bx bxs-microphone' ></i></div><button>Enviar</button>
+    </form>
+    <!-- Importa o script do Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      // Cria uma instância do Socket.IO
+      const socket = io();
+      // Seleciona o input do nome do usuário
+      const nomeInput = document.getElementById('nome');
+      // Seleciona o input da mensagem
+      const mensagemInput = document.getElementById('mensagem');
+      // Seleciona a lista de mensagens
+      const mensagens = document.getElementById('mensagens');
+
+      // Adiciona um evento de escuta para o envio do formulário
+      document.querySelector('form').addEventListener('submit', event => {
+        // Previne o envio padrão do formulário
+        event.preventDefault();
+        // Obtém o valor do input do nome do usuário
+        const nome = nomeInput.value;
+        // Obtém o valor do input da mensagem
+        const mensagem = mensagemInput.value;
+        // Verifica se ambos os campos foram preenchidos antes de enviar a mensagem
+        // Verifica se os valores são válidos (não estão em branco)
+        //trim() é um método da linguagem JavaScript que remove os espaços em branco do início e do final de uma string.
+        // emit envia um evento chamado "chat message" com um objeto contendo os valores de nome e mensagem para o servidor.
+        nome.trim() && mensagem.trim() && socket.emit('chat message', { nome, mensagem });
+        // Limpa o input da mensagem
+        mensagemInput.value = '';
+        // Desabilita o input do nome do usuário após a primeira mensagem
+        nomeInput.disabled = true; 
+      });
+
+      // Adiciona um evento de escuta para o evento de mensagem recebido do servidor
+      socket.on('chat message', dados => {
+        // Cria um elemento de lista para exibir a mensagem
+        const lista = document.createElement('li');
+        // Define o texto da mensagem
+        lista.textContent = `${dados.nome}: ${dados.mensagem}`;
+
+        mensagens.appendChild(lista);
+      });
+    </script>
+  </body>
+</html>
